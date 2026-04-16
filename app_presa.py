@@ -23,7 +23,7 @@ with st.sidebar:
     gs = st.number_input("Gravedad Específica (Gs)", value=2.65)
     e = st.number_input("Relación de Vacíos (e)", value=0.65)
 
-# Ejecución del motor conectando todos los parámetros
+# Ejecución
 res = modelar_flujo(lx, prof_muro, pos_muro, dx=0.5, k=k, Gs=gs, e=e, h1=h1, h2=h2)
 
 tab1, tab2, tab3 = st.tabs(["📊 Resultados y Gráficas", "📖 Marco Teórico", "🛡️ Análisis de Seguridad"])
@@ -34,20 +34,20 @@ with tab1:
     col2.metric("Gradiente Crítico (ic)", f"{res['ic']:.2f}")
     col3.metric("FS Sifonamiento", f"{res['fs']:.2f}")
 
-    # Estructura gráfica clásica de 2 Subplots
+    # Gráficas estilo Colab original
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10))
     nx, ny, dx, x_ini, x_fin, y_base, y_sup = res['coords']
     X, Y = np.meshgrid(np.arange(nx)*dx, np.arange(ny)*dx)
     
-    # --- Gráfica 1: Red de Flujo (Azul) ---
+    # Gráfico 1: Red de flujo azul y flechas blancas
     ax1.contourf(X, Y, res['H'], levels=50, cmap='Blues', alpha=0.8)
     ax1.contour(X, Y, res['H'], levels=np.linspace(h2, h1, 15), colors='black', linewidths=0.5)
     ax1.streamplot(X, Y, res['ix'], res['iy'], color='white', density=2.0, linewidth=1.0)
     ax1.imshow(np.where(res['mask'], np.nan, 1), extent=[0, lx, 0, 30.0], origin='lower', cmap='gray', alpha=0.9, zorder=5)
-    ax1.set_title(f'Red de Flujo y Líneas de Corriente (Lx = {lx}m, Muro = {prof_muro}m)')
+    ax1.set_title(f'Red de Flujo y Líneas de Corriente (Lx = {lx}m, Muro = {prof_muro}m a Pos = {pos_muro}m)')
     ax1.set_ylabel('Elevación (m)')
     
-    # --- Gráfica 2: Mapa de Calor del Gradiente (Turbo) ---
+    # Gráfico 2: Mapa de calor Turbo
     mapa_grad = ax2.contourf(X, Y, res['imag'], levels=np.linspace(0, 1.2, 50), cmap='turbo', extend='max')
     plt.colorbar(mapa_grad, ax=ax2, label='Gradiente Hidráulico (i)')
     ax2.imshow(np.where(res['mask'], np.nan, 1), extent=[0, lx, 0, 30.0], origin='lower', cmap='gray', alpha=1.0, zorder=5)
@@ -56,7 +56,6 @@ with tab1:
     ax2.set_xlabel('Posición X (m)')
     ax2.set_ylabel('Elevación (m)')
 
-    # Configuraciones compartidas
     for ax in [ax1, ax2]:
         ax.set_aspect('equal')
         ax.grid(True, linestyle=':', alpha=0.6)
