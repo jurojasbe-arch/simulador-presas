@@ -1,9 +1,9 @@
 import numpy as np
 
-def modelar_flujo(Lx, prof_muro, dx=0.5, k=1e-5, Gs=2.65, e=0.65):
+# ACTUALIZADA: La función ahora acepta h1, h2 y la posición del muro
+def modelar_flujo(Lx, prof_muro, pos_muro, dx=0.5, k=1e-5, Gs=2.65, e=0.65, h1=50.0, h2=5.0):
     # Parámetros fijos de la geometría
     Ly, base_presa, empotramiento = 30.0, 15.0, 5.0
-    pos_muro_x, h1, h2 = 5.0, 50.0, 5.0
     
     Nx, Ny = int(Lx / dx) + 1, int(Ly / dx) + 1
     ic_critico = (Gs - 1) / (1 + e)
@@ -13,7 +13,9 @@ def modelar_flujo(Lx, prof_muro, dx=0.5, k=1e-5, Gs=2.65, e=0.65):
     idx_x_inicio = int(x_inicio / dx)
     idx_x_fin = int((x_inicio + base_presa) / dx)
     idx_y_base = int((Ly - empotramiento) / dx) 
-    idx_x_muro = int((x_inicio + pos_muro_x) / dx)
+    
+    # ACTUALIZADO: Cálculo del índice para la posición del muro
+    idx_x_muro = int((x_inicio + pos_muro) / dx)
     idx_y_muro_fin = int((Ly - empotramiento - prof_muro) / dx) 
     
     # Máscara de Concreto (is_soil=False donde hay estructura)
@@ -49,7 +51,7 @@ def modelar_flujo(Lx, prof_muro, dx=0.5, k=1e-5, Gs=2.65, e=0.65):
         H_new[0, 0] = H_new[1, 0]
         H_new[0, -1] = H_new[1, -1]
         
-        # Restablecer Dirichlet (Cargas conocidas en lechos)
+        # ACTUALIZADO: Restablecer Dirichlet (Cargas conocidas en lechos)
         H_new[Ny-1, :idx_x_inicio] = h1
         H_new[Ny-1, idx_x_fin+1:] = h2
         
