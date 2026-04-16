@@ -8,15 +8,12 @@ st.set_page_config(page_title="Geotecnia Pro: Simulador de Flujo", layout="wide"
 st.title("🌊 Análisis de Flujo en Medios Porosos")
 st.markdown("---")
 
-# Barra lateral de parámetros (ACTUALIZADA con controles de H1, H2 y Posición)
 with st.sidebar:
     st.header("⚙️ Parámetros de Diseño")
     lx = st.slider("Longitud del Dominio (Lx)", 50.0, 180.0, 135.0, 5.0)
-    prof_muro = st.select_slider("Profundidad de Tablestaca (m)", options=[0, 5, 10, 15, 20], value=10)
-    # RESTAURADO: Slider para la posición del muro (de 0 a 15m, el ancho de la presa)
+    prof_muro = st.slider("Profundidad de Tablestaca (m)", 0.0, 20.0, 10.0, 1.0)
     pos_muro = st.slider("Posición de Tablestaca (m)", 0.0, 15.0, 5.0, 0.5)
     
-    # NUEVO: Controles para las alturas del flujo (H1 y H2)
     st.subheader("💧 Alturas del Flujo")
     h1 = st.number_input("Altura Aguas Arriba (H1)", value=50.0, step=1.0)
     h2 = st.number_input("Altura Aguas Abajo (H2)", value=5.0, step=1.0)
@@ -26,10 +23,9 @@ with st.sidebar:
     gs = st.number_input("Gravedad Específica (Gs)", value=2.65)
     e = st.number_input("Relación de Vacíos (e)", value=0.65)
 
-# Ejecución del motor con los nuevos parámetros
+# Ejecución del motor conectando todos los parámetros
 res = modelar_flujo(lx, prof_muro, pos_muro, dx=0.5, k=k, Gs=gs, e=e, h1=h1, h2=h2)
 
-# Layout de pestañas académicas
 tab1, tab2, tab3 = st.tabs(["📊 Resultados y Gráficas", "📖 Marco Teórico", "🛡️ Análisis de Seguridad"])
 
 with tab1:
@@ -38,30 +34,36 @@ with tab1:
     col2.metric("Gradiente Crítico (ic)", f"{res['ic']:.2f}")
     col3.metric("FS Sifonamiento", f"{res['fs']:.2f}")
 
-    # Visualización principal (ESTILO RESTAURADO SEGÚN IMAGEN 2)
-    fig, ax = plt.subplots(figsize=(12, 6))
-    nx, ny, dx, x_ini, x_fin, y_base = res['coords']
+    # Estructura gráfica clásica de 2 Subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10))
+    nx, ny, dx, x_ini, x_fin, y_base, y_sup = res['coords']
     X, Y = np.meshgrid(np.arange(nx)*dx, np.arange(ny)*dx)
     
-    # 1. Mapa de Calor (Carga Hidráulica h)
-    # Se usa un colormap de gradiente (red/blue/orange) para h
-    cf = ax.contourf(X, Y, res['H'], levels=30, cmap='turbo', alpha=0.9)
-    # plt.colorbar(cf, ax=ax, label='Carga Hidráulica (h)') # Opcional: barra de colores
+    # --- Gráfica 1: Red de Flujo (Azul) ---
+    ax1.contourf(X, Y, res['H'], levels=50, cmap='Blues', alpha=0.8)
+    ax1.contour(X, Y, res['H'], levels=np.linspace(h2, h1, 15), colors='black', linewidths=0.5)
+    ax1.streamplot(X, Y, res['ix'], res['iy'], color='white', density=2.0, linewidth=1.0)
+    ax1.imshow(np.where(res['mask'], np.nan, 1), extent=[0, lx, 0, 30.0], origin='lower', cmap='gray', alpha=0.9, zorder=5)
+    ax1.set_title(f'Red de Flujo y Líneas de Corriente (Lx = {lx}m, Muro = {prof_muro}m)')
+    ax1.set_ylabel('Elevación (m)')
     
-    # 2. Líneas Equi-potenciales
-    # Contornos negros sobre el mapa de calor
-    ax.contour(X, Y, res['H'], levels=15, colors='black', linewidths=0.5)
-    
-    # 3. Líneas de Corriente (masked para no atravesar estructura)
-    ix_m = np.ma.masked_array(res['ix'], mask=~res['mask'])
-    iy_m = np.ma.masked_array(res['iy'], mask=~res['mask'])
-    ax.streamplot(X, Y, ix_m, iy_m, color='navy', linewidth=0.8, density=1.5)
-    
-    # Dibujo de estructura (gray) como bloque sólido
-    ax.imshow(np.where(res['mask'], np.nan, 1), extent=[0, lx, 0, 30], cmap='gray', alpha=0.8, zorder=10)
-    
-    # Título dinámico
-    ax.set_title(f"Red de Flujo y Mapa de Calor (Lx={lx}m, Muro Prof={prof_muro}m a Pos={pos_muro}m, H1={h1}m, H2={h2}m)")
+    # --- Gráfica 2: Mapa de Calor del Gradiente (Turbo) ---
+    mapa_grad = ax2.contourf(X, Y, res['imag'], levels=np.linspace(0, 1.2, 50), cmap='turbo', extend='max')
+    plt.colorbar(mapa_grad, ax=ax2, label='Gradiente Hidráulico (i)')
+    ax2.imshow(np.where(res['mask'], np.nan, 1), extent=[0, lx, 0, 30.0], origin='lower', cmap='gray', alpha=1.0, zorder=5)
+    ax2.contour(X, Y, res['imag'], levels=[res['ic']], colors='red', linewidths=3, linestyles='dashed')
+    ax2.set_title('Mapa de Calor del Gradiente Hidráulico')
+    ax2.set_xlabel('Posición X (m)')
+    ax2.set_ylabel('Elevación (m)')
+
+    # Configuraciones compartidas
+    for ax in [ax1, ax2]:
+        ax.set_aspect('equal')
+        ax.grid(True, linestyle=':', alpha=0.6)
+        ax.set_xlim(0, lx)
+        ax.set_ylim(0, 30.0)
+
+    plt.tight_layout()
     st.pyplot(fig)
 
 with tab2:
@@ -74,9 +76,10 @@ with tab2:
 
 with tab3:
     st.header("Análisis de Estabilidad")
+    st.markdown(f"**Gradiente Máximo de Salida Calculado:** {res['i_exit_max']:.3f}")
     if res['fs'] > 1.5:
         st.success(f"Sistema Seguro. FS = {res['fs']:.2f} (> 1.5)")
     elif res['fs'] > 1.0:
-        st.warning(f"Condición Crítica. FS = {res['fs']:.2f} (Margen insuficiente)")
+        st.warning(f"Condición Crítica. FS = {res['fs']:.2f} (Margen normativo insuficiente)")
     else:
         st.error(f"Falla por Sifonamiento Detectada. FS = {res['fs']:.2f} (<= 1.0)")
